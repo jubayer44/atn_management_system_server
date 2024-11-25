@@ -1,16 +1,15 @@
-import express, { NextFunction, Request, Response } from "express";
-import { TimeSheetControllers } from "./timeSheet.controllers";
-import validationRequest from "../../middlewares/validationRequest";
-import { TimeSheetValidationSchemas } from "./timeSheet.validations";
-import auth from "../../middlewares/auth";
 import { UserRole } from "@prisma/client";
+import express, { NextFunction, Request, Response } from "express";
 import { fileUploader } from "../../../helpers/fileUploader";
+import auth from "../../middlewares/auth";
+import { TimeSheetControllers } from "./timeSheet.controllers";
+import { TimeSheetValidationSchemas } from "./timeSheet.validations";
 
 const router = express.Router();
 
 router.post(
   "/create-time-sheet",
-  auth(UserRole.ADMIN, UserRole.USER),
+  auth(UserRole.USER),
   fileUploader.upload.single("file"),
   (req: Request, res: Response, next: NextFunction) => {
     try {

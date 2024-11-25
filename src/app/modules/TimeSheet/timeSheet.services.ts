@@ -13,6 +13,9 @@ import {
   isTimeSheetAlreadyExists,
   isTimeSheetExists,
 } from "./timeSheet.utils";
+import httpStatus from "http-status";
+import AppError from "../../errors/AppError";
+import { TPagination, TTimeSheetQueryKeys } from "../../interfaces/common";
 
 const createTimeSheetIntoDB = async (
   file: TFile,
@@ -60,7 +63,11 @@ const createTimeSheetIntoDB = async (
   return result;
 };
 
-const getAllTimeSheetsFromDB = async (filtersField: any, options: any) => {
+const getAllTimeSheetsFromDB = async (
+  filtersField: TTimeSheetQueryKeys,
+  options: TPagination,
+  user: JwtPayload
+) => {
   const { page, limit, skip } = paginationHelpers.calculatePagination(options);
   const { searchTerm, startDate, endDate } = filtersField;
 
@@ -112,6 +119,12 @@ const getAllTimeSheetsFromDB = async (filtersField: any, options: any) => {
     });
   }
 
+  if (user.role === UserRole.USER) {
+    andConditions.push({
+      userId: user.id,
+    });
+  }
+
   const whereConditions: Prisma.Time_SheetWhereInput = {
     AND: andConditions,
   };
@@ -160,6 +173,13 @@ const updateTimeSheetIntoDB = async (
   // Check if the trip exists
   const trip = await isTimeSheetExists(id);
 
+  if (user.role === UserRole.USER && trip.userId !== user.id) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      "You are not authorized to delete this trip."
+    );
+  }
+
   const currentDate = new Date();
   const timePassed = currentDate.getTime() - new Date(trip.createdAt).getTime();
 
@@ -168,7 +188,10 @@ const updateTimeSheetIntoDB = async (
   // If more than 24 hours have passed, deny the update
   if (timePassed > oneDay && user.role !== UserRole.ADMIN) {
     // 24 hours in milliseconds
-    throw new Error("You cannot update the trip after 24 hours.");
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You cannot update the trip after 24 hours."
+    );
   }
 
   const durationAndPayment = DurationInNumberAndAmount(payload);
@@ -191,7 +214,7 @@ const updateTimeSheetIntoDB = async (
   if (payload.hourlyRate !== trip.hourlyRate) {
     await prisma.user.update({
       where: {
-        id: user.id,
+        id: trip.id,
       },
       data: {
         hourlyRate: new Decimal(payload.hourlyRate.toFixed(2)),
@@ -211,7 +234,8 @@ const updateTimeSheetIntoDB = async (
     });
 
     if (tripIdExists) {
-      throw new Error(
+      throw new AppError(
+        httpStatus.CONFLICT,
         "Duplicate tripId found. A time sheet with the same tripId already exists."
       );
     }
@@ -245,7 +269,8 @@ const updateTimeSheetIntoDB = async (
       });
 
       if (existingOverlappingTimes) {
-        throw new Error(
+        throw new AppError(
+          httpStatus.CONFLICT,
           "The trip start and end times overlap with another time sheet for the same date."
         );
       }
@@ -266,6 +291,13 @@ const updateTimeSheetIntoDB = async (
 const deleteTimeSheetFromDB = async (id: string, user: JwtPayload) => {
   const trip = await isTimeSheetExists(id);
 
+  if (user.role === UserRole.USER && trip.userId !== user.id) {
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      "You are not authorized to delete this trip."
+    );
+  }
+
   const currentDate = new Date();
   const timePassed = currentDate.getTime() - new Date(trip.createdAt).getTime();
 
@@ -274,7 +306,10 @@ const deleteTimeSheetFromDB = async (id: string, user: JwtPayload) => {
   // If more than 24 hours have passed, deny the update
   if (timePassed > oneDay && user.role !== UserRole.ADMIN) {
     // 24 hours in milliseconds
-    throw new Error("You cannot delete the trip after 24 hours.");
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You cannot delete the trip after 24 hours."
+    );
   }
 
   const result = await prisma.time_Sheet.delete({
@@ -285,7 +320,7 @@ const deleteTimeSheetFromDB = async (id: string, user: JwtPayload) => {
 
   if (trip.tripReceipt && result?.id) {
     const imageUrl = trip.tripReceipt;
-    const publicId = imageUrl?.split("/").pop()?.split(".")[0];
+    const publicId = imageUrl?.split("/")?.pop()?.split(".")[0];
 
     await fileUploader.removeFromCloudinary(publicId as string);
   }
@@ -293,8 +328,15 @@ const deleteTimeSheetFromDB = async (id: string, user: JwtPayload) => {
   return result;
 };
 
-const getMetaDataFromDB = async (date: string | undefined) => {
+const getMetaDataFromDB = async (
+  date: string | undefined,
+  user: JwtPayload
+) => {
   let whereConditions: Prisma.Time_SheetWhereInput = {};
+
+  if (user.role === UserRole.USER) {
+    whereConditions.userId = user.id;
+  }
 
   if (date) {
     // Split the date string (MM/DD/YYYY) into month, day, and year
@@ -308,11 +350,9 @@ const getMetaDataFromDB = async (date: string | undefined) => {
     startOfMonth.setUTCHours(0, 0, 0, 0); // Set to midnight UTC
     endOfMonth.setUTCHours(23, 59, 59, 999); // Set to end of the month, 23:59:59 UTC
 
-    whereConditions = {
-      date: {
-        gte: startOfMonth, // Greater than or equal to start of the month
-        lte: endOfMonth, // Less than or equal to end of the month
-      },
+    whereConditions.date = {
+      gte: startOfMonth, // Greater than or equal to start of the month
+      lte: endOfMonth, // Less than or equal to end of the month
     };
   }
 

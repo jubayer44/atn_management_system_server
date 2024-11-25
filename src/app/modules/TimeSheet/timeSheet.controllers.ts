@@ -24,22 +24,25 @@ const createTimeSheet = catchAsync(
   }
 );
 
-const getAllTimeSheet = catchAsync(async (req, res) => {
-  const filtersField = pickFunction(req.query, timeSheetPayloadKeys);
-  const options = parsePaginationOptions(
-    pickFunction(req?.query, paginationOptions)
-  );
-  const result = await TimeSheetServices.getAllTimeSheetsFromDB(
-    filtersField,
-    options
-  );
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "All Time Sheet retrieved successfully",
-    data: result,
-  });
-});
+const getAllTimeSheet = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const filtersField = pickFunction(req.query, timeSheetPayloadKeys);
+    const options = parsePaginationOptions(
+      pickFunction(req?.query, paginationOptions)
+    );
+    const result = await TimeSheetServices.getAllTimeSheetsFromDB(
+      filtersField,
+      options,
+      req.user
+    );
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "All Time Sheet retrieved successfully",
+      data: result,
+    });
+  }
+);
 
 const updateTimeSheet = catchAsync(
   async (req: Request & { user?: any }, res: Response) => {
@@ -73,16 +76,21 @@ const deleteTimeSheet = catchAsync(
   }
 );
 
-const getMetaData = catchAsync(async (req, res) => {
-  const date = req.query.date || "";
-  const result = await TimeSheetServices.getMetaDataFromDB(date as string);
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Meta Data Retrieved Successfully",
-    data: result,
-  });
-});
+const getMetaData = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const date = req.query.date || "";
+    const result = await TimeSheetServices.getMetaDataFromDB(
+      date as string,
+      req.user
+    );
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Meta Data Retrieved Successfully",
+      data: result,
+    });
+  }
+);
 
 export const TimeSheetControllers = {
   createTimeSheet,
