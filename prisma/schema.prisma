@@ -13,7 +13,7 @@ model User {
   name              String
   email             String       @unique
   password          String
-  hourlyRate        Int
+  hourlyRate        Decimal?
   role              UserRole     @default(USER)
   status            UserStatus   @default(ACTIVE)
   passwordChangedAt DateTime?
@@ -23,63 +23,6 @@ model User {
   Time_Sheet        Time_Sheet[]
 
   @@map("users")
-}
-
-model Individual {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String
-  email     String   @unique
-  gender    Gender
-  address   String
-  city      String
-  state     String
-  zip       String
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  rosters   Roster[]
-
-  @@map("individuals")
-}
-
-model Weekend {
-  id          String   @id @default(uuid())
-  weekendNo   String
-  description String?
-  layDirector String
-  dateBegin   DateTime
-  dateEnd     DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  rosters     Roster[]
-
-  @@map("weekends")
-}
-
-model Role {
-  id           String   @id @default(uuid())
-  name         String
-  abbreviation String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  rosters      Roster[]
-
-  @@map("roles")
-}
-
-model Roster {
-  id           String     @id @default(uuid())
-  individualId String
-  weekendId    String?
-  roleId       String?
-  individual   Individual @relation(fields: [individualId], references: [id], onDelete: Cascade)
-  weekend      Weekend?   @relation(fields: [weekendId], references: [id])
-  role         Role?      @relation(fields: [roleId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@map("rosters")
 }
 
 model Time_Sheet {
@@ -92,6 +35,7 @@ model Time_Sheet {
   duration         String
   durationInNumber Decimal
   payment          Decimal
+  hourlyRate       Decimal
   tripReceipt      String?
   memo             String?
   userId           String
@@ -114,11 +58,6 @@ model Session {
   updatedAt DateTime @updatedAt
 
   @@map("sessions")
-}
-
-enum Gender {
-  Men
-  Women
 }
 
 enum UserRole {

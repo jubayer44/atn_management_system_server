@@ -86,10 +86,7 @@ export const getTimeDuration = (tripData: Time_Sheet) => {
   return result;
 };
 
-export const DurationInNumberAndAmount = (
-  tripData: Time_Sheet,
-  hourlyRate: number
-) => {
+export const DurationInNumberAndAmount = (tripData: Time_Sheet) => {
   const date1 = new Date(tripData.tripStartTime).getTime();
   const date2 = new Date(tripData.tripEndTime).getTime();
 
@@ -99,9 +96,20 @@ export const DurationInNumberAndAmount = (
   // Convert milliseconds to minutes
   const durationNumber = Number(timeDifference / (1000 * 60 * 60)).toFixed(5); // Total minutes
 
-  const multiply = Number(durationNumber) * Number(hourlyRate);
+  const multiply = Number(durationNumber) * Number(tripData.hourlyRate);
 
   const tripAmount = multiply.toFixed(5);
 
   return { durationNumber, tripAmount };
+};
+
+export const convertDecimalHoursToTime = (decimalHours: any) => {
+  const hours = Math.floor(decimalHours); // Get the integer part (hours)
+  const minutes = Math.round((decimalHours - hours) * 60); // Convert the decimal part to minutes
+
+  // Ensure both hours and minutes are two digits
+  const formattedHours = hours.toString().padStart(2, "0");
+  const formattedMinutes = minutes.toString().padStart(2, "0");
+
+  return `${formattedHours}:${formattedMinutes}`;
 };

@@ -2,7 +2,6 @@ export const createUserPayloadKeys = [
   "name",
   "email",
   "role",
-  "hourlyRate",
   "status",
   "password",
 ];

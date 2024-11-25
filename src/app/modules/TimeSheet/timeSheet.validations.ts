@@ -19,11 +19,10 @@ const createValidation = z.object({
         required_error: "Trip End Time is required",
         invalid_type_error: "Trip End Time must be a string",
       }),
-      tripReceipt: z
-        .string({
-          invalid_type_error: "Trip Receipt must be a string",
-        })
-        .optional(),
+      hourlyRate: z.number({
+        required_error: "Hourly Rate is required",
+        invalid_type_error: "Hourly Rate must be a number",
+      }),
       memo: z
         .string({
           invalid_type_error: "Memo must be a string",
@@ -71,6 +70,11 @@ const updateValidation = z.object({
       tripReceipt: z
         .string({
           invalid_type_error: "Trip Receipt must be a string",
+        })
+        .optional(),
+      hourlyRate: z
+        .number({
+          invalid_type_error: "Hourly Rate must be a number",
         })
         .optional(),
       memo: z

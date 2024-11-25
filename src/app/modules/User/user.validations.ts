@@ -22,10 +22,6 @@ const createValidation = z.object({
       required_error: "Role is required",
       invalid_type_error: "Role must be USER or ADMIN",
     }),
-    hourlyRate: z.number({
-      required_error: "Hourly Rate is required",
-      invalid_type_error: "Hourly Rate must be a number",
-    }),
     status: z
       .enum(["ACTIVE", "BLOCKED"], {
         required_error: "Status is required",
@@ -52,11 +48,6 @@ const updateValidation = z.object({
     role: z
       .enum(["SUPER_ADMIN", "ADMIN", "USER"], {
         invalid_type_error: "Role must be USER or ADMIN",
-      })
-      .optional(),
-    hourlyRate: z
-      .number({
-        required_error: "Hourly Rate is required",
       })
       .optional(),
     status: z

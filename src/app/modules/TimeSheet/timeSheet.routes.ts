@@ -1,17 +1,45 @@
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import { TimeSheetControllers } from "./timeSheet.controllers";
 import validationRequest from "../../middlewares/validationRequest";
 import { TimeSheetValidationSchemas } from "./timeSheet.validations";
 import auth from "../../middlewares/auth";
 import { UserRole } from "@prisma/client";
+import { fileUploader } from "../../../helpers/fileUploader";
 
 const router = express.Router();
 
 router.post(
   "/create-time-sheet",
   auth(UserRole.ADMIN, UserRole.USER),
-  validationRequest(TimeSheetValidationSchemas.createValidation),
-  TimeSheetControllers.createTimeSheet
+  fileUploader.upload.single("file"),
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Check if 'data' exists in the form-data
+      if (!req.body.data) {
+        return res.status(400).json({
+          success: false,
+          message: "'data' field is missing in the form-data",
+        });
+      }
+
+      // Parse the 'data' field as JSON
+      const parsedData = JSON.parse(req.body.data);
+
+      // Validate the parsed data
+      req.body = TimeSheetValidationSchemas.createValidation.parse({
+        body: parsedData,
+      });
+
+      // Proceed with the controller
+      return TimeSheetControllers.createTimeSheet(req, res, next);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: "Zod Validation Error",
+        error: error.errors?.map((e: any) => e.message) || error,
+      });
+    }
+  }
 );
 
 router.get(
@@ -19,11 +47,39 @@ router.get(
   auth(UserRole.ADMIN, UserRole.USER),
   TimeSheetControllers.getAllTimeSheet
 );
+
 router.put(
   "/time-sheet/:id",
   auth(UserRole.ADMIN, UserRole.USER),
-  validationRequest(TimeSheetValidationSchemas.updateValidation),
-  TimeSheetControllers.updateTimeSheet
+  fileUploader.upload.single("file"),
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Check if 'data' exists in the form-data
+      if (!req.body.data) {
+        return res.status(400).json({
+          success: false,
+          message: "'data' field is missing in the form-data",
+        });
+      }
+
+      // Parse the 'data' field as JSON
+      const parsedData = JSON.parse(req.body.data);
+
+      // Validate the parsed data
+      req.body = TimeSheetValidationSchemas.updateValidation.parse({
+        body: parsedData,
+      });
+
+      // Proceed with the controller
+      return TimeSheetControllers.updateTimeSheet(req, res, next);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        message: "Zod Validation Error",
+        error: error.errors?.map((e: any) => e.message) || error,
+      });
+    }
+  }
 );
 
 router.delete(
@@ -31,5 +87,7 @@ router.delete(
   auth(UserRole.ADMIN, UserRole.USER),
   TimeSheetControllers.deleteTimeSheet
 );
+
+router.get("/meta-data", TimeSheetControllers.getMetaData);
 
 export const TimeSheetRoutes = router;

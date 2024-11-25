@@ -6,11 +6,13 @@ import { timeSheetPayloadKeys } from "./timeSheet.constant";
 import pickFunction from "../../../shared/picFunction";
 import { parsePaginationOptions } from "../../../shared/parsePaginationOptions";
 import { paginationOptions } from "../../constant";
+import { TFile } from "../../interfaces/file";
 
 const createTimeSheet = catchAsync(
   async (req: Request & { user?: any }, res: Response) => {
     const result = await TimeSheetServices.createTimeSheetIntoDB(
-      req.body,
+      (req.file as TFile) || null,
+      req.body.body,
       req.user
     );
     sendResponse(res, {
@@ -39,25 +41,45 @@ const getAllTimeSheet = catchAsync(async (req, res) => {
   });
 });
 
-const updateTimeSheet = catchAsync(async (req, res) => {
-  const result = await TimeSheetServices.updateTimeSheetIntoDB(
-    req.params.id,
-    req.body
-  );
-  sendResponse(res, {
-    statusCode: 200,
-    success: true,
-    message: "Time Sheet Updated Successfully",
-    data: result,
-  });
-});
+const updateTimeSheet = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const result = await TimeSheetServices.updateTimeSheetIntoDB(
+      req.params.id,
+      (req.file as TFile) || null,
+      req.body.body,
+      req.user
+    );
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Time Sheet Updated Successfully",
+      data: result,
+    });
+  }
+);
 
-const deleteTimeSheet = catchAsync(async (req, res) => {
-  const result = await TimeSheetServices.deleteTimeSheetFromDB(req.params.id);
+const deleteTimeSheet = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const result = await TimeSheetServices.deleteTimeSheetFromDB(
+      req.params.id,
+      req.user
+    );
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Time Sheet deleted Successfully",
+      data: result,
+    });
+  }
+);
+
+const getMetaData = catchAsync(async (req, res) => {
+  const date = req.query.date || "";
+  const result = await TimeSheetServices.getMetaDataFromDB(date as string);
   sendResponse(res, {
     statusCode: 200,
     success: true,
-    message: "Time Sheet deleted Successfully",
+    message: "Meta Data Retrieved Successfully",
     data: result,
   });
 });
@@ -67,4 +89,5 @@ export const TimeSheetControllers = {
   getAllTimeSheet,
   updateTimeSheet,
   deleteTimeSheet,
+  getMetaData,
 };

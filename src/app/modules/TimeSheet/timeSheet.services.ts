@@ -1,26 +1,32 @@
-import { Prisma, Time_Sheet } from "@prisma/client";
-import prisma from "../../../shared/prisma";
+import { Prisma, Time_Sheet, UserRole } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 import { JwtPayload } from "jsonwebtoken";
+import { fileUploader } from "../../../helpers/fileUploader";
+import { paginationHelpers } from "../../../helpers/paginationHelpers";
+import prisma from "../../../shared/prisma";
+import { TFile } from "../../interfaces/file";
+import { isUserExists } from "../User/user.utils";
 import {
+  convertDecimalHoursToTime,
   DurationInNumberAndAmount,
   getTimeDuration,
   isTimeSheetAlreadyExists,
   isTimeSheetExists,
 } from "./timeSheet.utils";
-import { paginationHelpers } from "../../../helpers/paginationHelpers";
-import { isUserExists } from "../User/user.utils";
-import { Decimal } from "@prisma/client/runtime/library";
 
 const createTimeSheetIntoDB = async (
+  file: TFile,
   payload: Time_Sheet,
   userData: JwtPayload
 ) => {
   const user = await isUserExists(userData.id);
 
-  const durationAndPayment = DurationInNumberAndAmount(
-    payload,
-    user.hourlyRate
-  );
+  if (file) {
+    const uploadPhoto = await fileUploader.uploadToCloudinary(file);
+    payload.tripReceipt = uploadPhoto?.secure_url || null;
+  }
+
+  const durationAndPayment = DurationInNumberAndAmount(payload);
 
   const tripData = {
     ...payload,
@@ -31,10 +37,22 @@ const createTimeSheetIntoDB = async (
     duration: getTimeDuration(payload),
     durationInNumber: new Decimal(durationAndPayment.durationNumber),
     payment: new Decimal(durationAndPayment.tripAmount),
+    hourlyRate: new Decimal(payload.hourlyRate.toFixed(2)),
     userId: user.id,
   };
 
   await isTimeSheetAlreadyExists(tripData);
+
+  if (payload.hourlyRate !== user.hourlyRate) {
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        hourlyRate: tripData.hourlyRate,
+      },
+    });
+  }
 
   const result = await prisma.time_Sheet.create({
     data: tripData,
@@ -128,18 +146,32 @@ const getAllTimeSheetsFromDB = async (filtersField: any, options: any) => {
   };
 };
 
-const updateTimeSheetIntoDB = async (id: string, payload: any) => {
+const updateTimeSheetIntoDB = async (
+  id: string,
+  file: TFile,
+  payload: Time_Sheet,
+  user: JwtPayload
+) => {
+  if (file) {
+    const uploadPhoto = await fileUploader.uploadToCloudinary(file);
+    payload.tripReceipt = uploadPhoto?.secure_url || null;
+  }
+
   // Check if the trip exists
   const trip = await isTimeSheetExists(id);
 
   const currentDate = new Date();
   const timePassed = currentDate.getTime() - new Date(trip.createdAt).getTime();
 
+  const oneDay = 24 * 60 * 60 * 1000;
+
   // If more than 24 hours have passed, deny the update
-  if (timePassed > 24 * 60 * 60 * 1000) {
+  if (timePassed > oneDay && user.role !== UserRole.ADMIN) {
     // 24 hours in milliseconds
     throw new Error("You cannot update the trip after 24 hours.");
   }
+
+  const durationAndPayment = DurationInNumberAndAmount(payload);
 
   const updatePayload = {
     tripId: payload.tripId || trip.tripId,
@@ -147,10 +179,25 @@ const updateTimeSheetIntoDB = async (id: string, payload: any) => {
     tripStartTime: new Date(payload.tripStartTime) || trip.tripStartTime,
     tripEndTime: new Date(payload.tripEndTime) || trip.tripEndTime,
     tripReceipt: payload.tripReceipt || trip.tripReceipt,
+    duration: getTimeDuration(payload),
+    durationInNumber: new Decimal(durationAndPayment.durationNumber),
+    payment: new Decimal(durationAndPayment.tripAmount),
+    hourlyRate: new Decimal(payload.hourlyRate.toFixed(2)) || trip.hourlyRate,
     memo: payload.memo || trip.memo,
   };
 
   const { tripId, date, tripStartTime, tripEndTime } = payload;
+
+  if (payload.hourlyRate !== trip.hourlyRate) {
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        hourlyRate: new Decimal(payload.hourlyRate.toFixed(2)),
+      },
+    });
+  }
 
   // Step 1: Check if the tripId already exists (except for the current record being updated)
   if (tripId) {
@@ -216,14 +263,16 @@ const updateTimeSheetIntoDB = async (id: string, payload: any) => {
   return result;
 };
 
-const deleteTimeSheetFromDB = async (id: string) => {
+const deleteTimeSheetFromDB = async (id: string, user: JwtPayload) => {
   const trip = await isTimeSheetExists(id);
 
   const currentDate = new Date();
   const timePassed = currentDate.getTime() - new Date(trip.createdAt).getTime();
 
+  const oneDay = 24 * 60 * 60 * 1000;
+
   // If more than 24 hours have passed, deny the update
-  if (timePassed > 24 * 60 * 60 * 1000) {
+  if (timePassed > oneDay && user.role !== UserRole.ADMIN) {
     // 24 hours in milliseconds
     throw new Error("You cannot delete the trip after 24 hours.");
   }
@@ -233,7 +282,69 @@ const deleteTimeSheetFromDB = async (id: string) => {
       id,
     },
   });
+
+  if (trip.tripReceipt && result?.id) {
+    const imageUrl = trip.tripReceipt;
+    const publicId = imageUrl?.split("/").pop()?.split(".")[0];
+
+    await fileUploader.removeFromCloudinary(publicId as string);
+  }
+
   return result;
+};
+
+const getMetaDataFromDB = async (date: string | undefined) => {
+  let whereConditions: Prisma.Time_SheetWhereInput = {};
+
+  if (date) {
+    // Split the date string (MM/DD/YYYY) into month, day, and year
+    const [day, month, year] = date.split("/").map(Number);
+
+    // Create start and end date for the month
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1)); // Month is 0-indexed
+    const endOfMonth = new Date(Date.UTC(year, month, 0)); // End of the month (0th day of the next month)
+
+    // Explicitly set the start and end times to 00:00:00 and 23:59:59 in UTC
+    startOfMonth.setUTCHours(0, 0, 0, 0); // Set to midnight UTC
+    endOfMonth.setUTCHours(23, 59, 59, 999); // Set to end of the month, 23:59:59 UTC
+
+    whereConditions = {
+      date: {
+        gte: startOfMonth, // Greater than or equal to start of the month
+        lte: endOfMonth, // Less than or equal to end of the month
+      },
+    };
+  }
+
+  // Aggregate to get the sum of payment and durationInNumber, and count the total records
+  const [totalTrip, totalPayment, totalWorkingHours] = await Promise.all([
+    prisma.time_Sheet.count({
+      where: whereConditions,
+    }),
+    prisma.time_Sheet.aggregate({
+      _sum: {
+        payment: true,
+      },
+      where: whereConditions,
+    }),
+    prisma.time_Sheet.aggregate({
+      _sum: {
+        durationInNumber: true,
+      },
+      where: whereConditions,
+    }),
+  ]);
+
+  const totalDurationFormatted = convertDecimalHoursToTime(
+    totalWorkingHours._sum.durationInNumber
+  );
+  const totalPaymentFormatted = (totalPayment._sum.payment || 0).toFixed(4);
+
+  return {
+    totalTrip,
+    totalDurationFormatted,
+    totalPayment: totalPaymentFormatted,
+  };
 };
 
 export const TimeSheetServices = {
@@ -241,4 +352,5 @@ export const TimeSheetServices = {
   getAllTimeSheetsFromDB,
   updateTimeSheetIntoDB,
   deleteTimeSheetFromDB,
+  getMetaDataFromDB,
 };
