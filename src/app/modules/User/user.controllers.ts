@@ -127,6 +127,16 @@ const updateUserName = catchAsync(
   }
 );
 
+const getAllEmployee = catchAsync(async (req, res) => {
+  const result = await UserServices.getAllEmployeeFromDb();
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "All Employee Retrieve successfully",
+    data: result,
+  });
+});
+
 export const UserControllers = {
   createUser,
   getSingleUser,
@@ -136,4 +146,5 @@ export const UserControllers = {
   deleteMultipleUser,
   updateUserWithAdmin,
   updateUserName,
+  getAllEmployee,
 };

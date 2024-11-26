@@ -60,13 +60,26 @@ export const isTimeSheetExists = async (id: string) => {
 };
 
 export const getTimeDuration = (tripData: Time_Sheet) => {
-  const date1 = new Date(tripData.tripStartTime).getTime();
-  const date2 = new Date(tripData.tripEndTime).getTime();
+  // Ensure tripStartTime and tripEndTime are valid Date objects
+  let date1 = new Date(tripData.tripStartTime);
+  let date2 = new Date(tripData.tripEndTime);
+
+  // Check if the dates are valid (NaN means invalid Date)
+  if (isNaN(date1.getTime()) || isNaN(date2.getTime())) {
+    throw new Error("Invalid date format");
+  }
+
+  // Set seconds and milliseconds to 0 for both dates
+  date1.setSeconds(0);
+  date1.setMilliseconds(0);
+
+  date2.setSeconds(0);
+  date2.setMilliseconds(0);
 
   // Calculate the time difference in milliseconds
-  const timeDifference = date2 - date1;
+  const timeDifference = date2.getTime() - date1.getTime();
 
-  // Convert milliseconds to minutes
+  // Convert milliseconds to total minutes (without considering seconds)
   const totalMinutes = Math.floor(timeDifference / (1000 * 60)); // Total minutes
 
   // Calculate hours and remaining minutes
@@ -80,18 +93,25 @@ export const getTimeDuration = (tripData: Time_Sheet) => {
     result = `${hours}:${minutes.toString().padStart(2, "0")}`;
   } else {
     // If less than 1 hour, show only minutes in "0:xx" format
-    result = `0:${minutes}`; // Here, minutes will be the only value shown
+    result = `0:${minutes.toString().padStart(2, "0")}`; // Showing minutes even if it's less than an hour
   }
 
   return result;
 };
 
 export const DurationInNumberAndAmount = (tripData: Time_Sheet) => {
-  const date1 = new Date(tripData.tripStartTime).getTime();
-  const date2 = new Date(tripData.tripEndTime).getTime();
+  const date1 = new Date(tripData.tripStartTime);
+  const date2 = new Date(tripData.tripEndTime);
+
+  // Set seconds and milliseconds to 0 for both dates
+  date1.setSeconds(0);
+  date1.setMilliseconds(0);
+
+  date2.setSeconds(0);
+  date2.setMilliseconds(0);
 
   // Calculate the time difference in milliseconds
-  const timeDifference = date2 - date1;
+  const timeDifference = date2.getTime() - date1.getTime();
 
   // Convert milliseconds to minutes
   const durationNumber = Number(timeDifference / (1000 * 60 * 60)).toFixed(5); // Total minutes

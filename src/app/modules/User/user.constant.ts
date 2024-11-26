@@ -5,4 +5,4 @@ export const createUserPayloadKeys = [
   "status",
   "password",
 ];
-export const updateUserPayloadKeys = ["name", "role", "status"];
+export const updateUserPayloadKeys = ["name", "status"];

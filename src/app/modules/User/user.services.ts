@@ -1,4 +1,4 @@
-import { Prisma, User, UserRole } from "@prisma/client";
+import { Prisma, User, UserRole, UserStatus } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { paginationHelpers } from "../../../helpers/paginationHelpers";
 import prisma from "../../../shared/prisma";
@@ -10,6 +10,10 @@ import AppError from "../../errors/AppError";
 import httpStatus from "http-status";
 
 const createUserIntoDb = async (payload: User) => {
+  if (payload.role === UserRole.ADMIN) {
+    throw new AppError(httpStatus.UNAUTHORIZED, "You can't create a Admin");
+  }
+
   await isUserAlreadyExists(payload.email);
 
   const hashedPassword = await bcrypt.hash(
@@ -78,6 +82,7 @@ const getMyProfileFromDb = async (user: any, sessionId: string) => {
       name: true,
       email: true,
       role: true,
+      hourlyRate: true,
       status: true,
     },
   });
@@ -299,6 +304,17 @@ const updateUserNameIntoDb = async (
   return result;
 };
 
+const getAllEmployeeFromDb = async () => {
+  const result = await prisma.user.findMany({
+    where: {
+      role: UserRole.USER,
+      status: UserStatus.ACTIVE,
+    },
+  });
+
+  return result;
+};
+
 export const UserServices = {
   createUserIntoDb,
   getSingleUser,
@@ -308,4 +324,5 @@ export const UserServices = {
   deleteMultipleUserFromDb,
   updateUserWithAdminIntoDb,
   updateUserNameIntoDb,
+  getAllEmployeeFromDb,
 };

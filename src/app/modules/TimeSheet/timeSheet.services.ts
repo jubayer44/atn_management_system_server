@@ -22,7 +22,15 @@ const createTimeSheetIntoDB = async (
   payload: Time_Sheet,
   userData: JwtPayload
 ) => {
-  const user = await isUserExists(userData.id);
+  let userId = userData.id;
+  if (userData.role === UserRole.ADMIN && payload.userId) {
+    userId = payload.userId;
+  }
+
+  if (userData.role === UserRole.ADMIN && !payload.userId) {
+    throw new AppError(httpStatus.UNAUTHORIZED, "User Id Required");
+  }
+  const user = await isUserExists(userId);
 
   if (file) {
     const uploadPhoto = await fileUploader.uploadToCloudinary(file);
@@ -134,7 +142,7 @@ const getAllTimeSheetsFromDB = async (
     skip,
     take: limit,
     orderBy: {
-      createdAt: options.sortOrder || "desc",
+      date: options.sortOrder || "desc",
     },
   });
 
@@ -176,7 +184,7 @@ const updateTimeSheetIntoDB = async (
   if (user.role === UserRole.USER && trip.userId !== user.id) {
     throw new AppError(
       httpStatus.UNAUTHORIZED,
-      "You are not authorized to delete this trip."
+      "You are not authorized to update this trip."
     );
   }
 
@@ -211,16 +219,19 @@ const updateTimeSheetIntoDB = async (
 
   const { tripId, date, tripStartTime, tripEndTime } = payload;
 
-  if (payload.hourlyRate !== trip.hourlyRate) {
-    await prisma.user.update({
-      where: {
-        id: trip.id,
-      },
-      data: {
-        hourlyRate: new Decimal(payload.hourlyRate.toFixed(2)),
-      },
-    });
-  }
+  // const existRate = trip.hourlyRate;
+
+  // if (payload.hourlyRate.toString() !== existRate.toString()) {
+  //   console.log(new Decimal(payload.hourlyRate.toFixed(2)));
+  //   const res = await prisma.user.update({
+  //     where: {
+  //       id: trip.id,
+  //     },
+  //     data: {
+  //       hourlyRate: new Decimal("25.10"),
+  //     },
+  //   });
+  // }
 
   // Step 1: Check if the tripId already exists (except for the current record being updated)
   if (tripId) {

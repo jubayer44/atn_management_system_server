@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.post(
   "/create-time-sheet",
-  auth(UserRole.USER),
+  auth(UserRole.USER, UserRole.ADMIN),
   fileUploader.upload.single("file"),
   (req: Request, res: Response, next: NextFunction) => {
     try {

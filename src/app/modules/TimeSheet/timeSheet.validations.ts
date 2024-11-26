@@ -28,6 +28,11 @@ const createValidation = z.object({
           invalid_type_error: "Memo must be a string",
         })
         .optional(),
+      userId: z
+        .string({
+          invalid_type_error: "User Id must be a string",
+        })
+        .optional(),
     })
     .refine(
       (data) => {

@@ -55,4 +55,10 @@ router.delete(
   UserControllers.deleteMultipleUser
 );
 
+router.get(
+  "/all-employee",
+  auth(UserRole.ADMIN),
+  UserControllers.getAllEmployee
+);
+
 export const UserRoutes = router;
